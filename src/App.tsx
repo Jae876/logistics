@@ -233,8 +233,8 @@ function App() {
         }
 
         const [shipData, geoData] = await Promise.all([
-          shipRes.json(),
-          geoRes.json()
+          shipRes.json().catch(() => null),
+          geoRes.json().catch(() => null)
         ]);
         setShipments(Array.isArray(shipData) ? shipData : []);
         setGeofences(Array.isArray(geoData) ? geoData : []);
@@ -260,8 +260,8 @@ function App() {
           return;
         }
         const [shipData, geoData] = await Promise.all([
-          shipRes.json(),
-          geoRes.json()
+          shipRes.json().catch(() => null),
+          geoRes.json().catch(() => null)
         ]);
         setShipments(Array.isArray(shipData) ? shipData : []);
         setGeofences(Array.isArray(geoData) ? geoData : []);
@@ -598,26 +598,36 @@ function App() {
       return;
     }
 
-    const findShipment = (list: Shipment[]) => list.find((shipment) => shipment.id.toLowerCase() === query);
-    let found: Shipment | undefined = findShipment(shipments);
-
-    if (!found) {
-      try {
-        const response = await fetch('/api/public/shipments');
-        if (response.ok) {
-          const latest = await response.json();
-          setShipments(Array.isArray(latest) ? latest : []);
-          found = findShipment(Array.isArray(latest) ? latest : []);
-        }
-      } catch (error) {
-        setShipments([]);
-        found = undefined;
+    try {
+      const response = await fetch(`/api/public/shipments?id=${encodeURIComponent(trackQuery.trim())}`);
+      if (!response.ok) {
+        setTrackedShipment(null);
+        setIsPackageImageOpen(false);
+        navigate('/track');
+        return;
       }
+
+      const payload = await response.json().catch(() => null);
+      const latest = Array.isArray(payload) ? payload : Array.isArray(payload?.rows) ? payload.rows : [];
+      const found = latest.find((shipment: Shipment) => shipment.id.toLowerCase() === query);
+
+      if (found) {
+        setShipments(Array.isArray(latest) ? latest : []);
+        setSelectedShipmentId(found.id);
+        setTrackedShipment(found);
+        setIsPackageImageOpen(false);
+        navigate('/track');
+        return;
+      }
+    } catch (error) {
+      setTrackedShipment(null);
+      setIsPackageImageOpen(false);
     }
 
-    if (found) {
-      setSelectedShipmentId(found.id);
-      setTrackedShipment(found);
+    const fallback = shipments.find((shipment) => shipment.id.toLowerCase() === query);
+    if (fallback) {
+      setSelectedShipmentId(fallback.id);
+      setTrackedShipment(fallback);
       setIsPackageImageOpen(false);
       navigate('/track');
       return;

@@ -1,10 +1,11 @@
 import { query, runMigrationsIfNeeded, pool } from '../_db.js';
+import { seededGeofences } from '../_fixtures.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   if (!pool) {
-    return res.status(503).json({ error: 'Database not configured for serverless geofence lookup.' });
+    return res.json(seededGeofences);
   }
 
   try {

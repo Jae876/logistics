@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { query, runMigrationsIfNeeded, pool } from '../_db.js';
+import { seededShipments } from '../_fixtures.js';
 
 const SECRET = process.env.ADMIN_JWT_SECRET || 'dev-secret-change-me';
 
@@ -15,6 +16,14 @@ const requireAuth = (req) => {
   }
 };
 
+const normalizeShipment = (shipment) => ({
+  ...shipment,
+  route: Array.isArray(shipment.route) ? shipment.route : [],
+  coords: Array.isArray(shipment.coords) ? shipment.coords : []
+});
+
+const seededShipmentsList = [...seededShipments];
+
 export default async function handler(req, res) {
   if (pool) await runMigrationsIfNeeded();
 
@@ -22,11 +31,56 @@ export default async function handler(req, res) {
   if (!user) return res.status(403).json({ error: 'Unauthorized' });
 
   if (req.method === 'GET') {
+    if (!pool) {
+      const requestedId = req.query?.id || (req.url ? new URL(req.url, 'http://localhost').searchParams.get('id') : '');
+      if (requestedId) {
+        const match = seededShipmentsList.find((shipment) => shipment.id.toLowerCase() === requestedId.toLowerCase());
+        return res.json(match ? [normalizeShipment(match)] : []);
+      }
+      return res.json(seededShipmentsList.map(normalizeShipment));
+    }
+
     const result = await query('SELECT * FROM shipments ORDER BY created_at DESC');
     return res.json(result.rows.map((r) => ({ ...r, route: r.route || [], coords: r.coords || [] })));
   }
 
   if (req.method === 'POST') {
+    if (!pool) {
+      const body = req.body || {};
+      const created = normalizeShipment({
+        ...body,
+        id: body.id || `TRK-${Math.random().toString(36).slice(2, 10).toUpperCase()}`,
+        status: body.status || 'Pending confirmation',
+        origin: body.origin || '',
+        destination: body.destination || '',
+        eta: body.eta || '',
+        service: body.service || 'Air Freight',
+        weight: body.weight || '0 KG',
+        rate: body.rate || '$0',
+        progress: Number(body.progress || 0),
+        coords: body.coords || [34.0522, -118.2437],
+        route: body.route || [[34.0522, -118.2437], [40.7128, -74.006]],
+        senderName: body.senderName || '',
+        senderEmail: body.senderEmail || '',
+        senderPhone: body.senderPhone || '',
+        senderAddress: body.senderAddress || '',
+        receiverName: body.receiverName || '',
+        receiverEmail: body.receiverEmail || '',
+        receiverPhone: body.receiverPhone || '',
+        receiverAddress: body.receiverAddress || '',
+        packageDescription: body.packageDescription || '',
+        carrierName: body.carrierName || '',
+        carrierReference: body.carrierReference || '',
+        quantity: body.quantity || '',
+        paymentMode: body.paymentMode || '',
+        shipmentMode: body.shipmentMode || '',
+        deliveryTime: body.deliveryTime || '',
+        trackingImage: body.trackingImage || ''
+      });
+      seededShipmentsList.unshift(created);
+      return res.status(201).json(created);
+    }
+
     const body = req.body || {};
     const id = body.id || `TRK-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
     const q = `INSERT INTO shipments(id,status,origin,destination,eta,service,weight,rate,progress,coords,route,sender_name,sender_email,sender_phone,sender_address,receiver_name,receiver_email,receiver_phone,receiver_address,package_description,carrier_name,carrier_reference,quantity,payment_mode,shipment_mode,dispatch_date,delivery_date,delivery_time,tracking_image,created_at,updated_at)
@@ -69,6 +123,13 @@ export default async function handler(req, res) {
   if (req.method === 'PUT') {
     const id = req.query.id || (req.url && new URL(req.url, 'http://localhost').searchParams.get('id'));
     if (!id) return res.status(400).json({ error: 'Missing id' });
+    if (!pool) {
+      const body = req.body || {};
+      const index = seededShipmentsList.findIndex((shipment) => shipment.id === id);
+      if (index === -1) return res.status(404).json({ error: 'Not found' });
+      seededShipmentsList[index] = normalizeShipment({ ...seededShipmentsList[index], ...body });
+      return res.json(normalizeShipment(seededShipmentsList[index]));
+    }
     const body = req.body || {};
     const fields = [];
     const params = [];
@@ -97,6 +158,11 @@ export default async function handler(req, res) {
   if (req.method === 'DELETE') {
     const id = req.query.id || (req.url && new URL(req.url, 'http://localhost').searchParams.get('id'));
     if (!id) return res.status(400).json({ error: 'Missing id' });
+    if (!pool) {
+      const index = seededShipmentsList.findIndex((shipment) => shipment.id === id);
+      if (index !== -1) seededShipmentsList.splice(index, 1);
+      return res.status(204).end();
+    }
     await query('DELETE FROM shipments WHERE id = $1', [id]);
     return res.status(204).end();
   }
