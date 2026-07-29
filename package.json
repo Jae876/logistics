@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"node local-server.mjs\" \"vite\"",
-    "backend": "node local-server.mjs",
+    "dev": "vite",
+    "backend": "echo \"Serverless API routes are provided by Vercel /api handlers.\"",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "smoke:serverless": "node scripts/serverless-track-smoke.mjs"
