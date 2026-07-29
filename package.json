@@ -4,10 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npx vercel dev\" \"vite\"",
-    "backend": "npx vercel dev",
+    "dev": "concurrently \"node local-server.mjs\" \"vite\"",
+    "backend": "node local-server.mjs",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "smoke:serverless": "node scripts/serverless-track-smoke.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -30,3 +31,6 @@
     "vite": "^5.4.1"
   }
 }
+
+
+
