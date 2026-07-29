@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run backend\" \"vite\"",
-    "backend": "node server.js",
+    "dev": "concurrently \"npx vercel dev\" \"vite\"",
+    "backend": "npx vercel dev",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
