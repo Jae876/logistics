@@ -3,6 +3,7 @@ import { Circle, MapContainer, Marker, Popup, Polyline, TileLayer } from 'react-
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './styles.css';
+import { sanitizeGeofences, sanitizeShipments } from './lib/mapGeometry';
 
 type Shipment = {
   id: string;
@@ -127,6 +128,17 @@ const defaultNewZone: NewZoneData = {
   radius: '18000'
 };
 
+const defaultMapCenter: [number, number] = [34.0522, -118.2437];
+
+const isCoordinatePair = (value: unknown): value is [number, number] => {
+  return Array.isArray(value) && value.length >= 2 && typeof value[0] === 'number' && Number.isFinite(value[0]) && typeof value[1] === 'number' && Number.isFinite(value[1]);
+};
+
+const getValidRoute = (route: unknown): [number, number][] => {
+  if (!Array.isArray(route)) return [];
+  return route.filter(isCoordinatePair);
+};
+
 type BackgroundKey = 'default' | 'air' | 'ocean' | 'land' | 'warehouse';
 
 const serviceCards = [
@@ -236,9 +248,12 @@ function App() {
           shipRes.json().catch(() => null),
           geoRes.json().catch(() => null)
         ]);
-        setShipments(Array.isArray(shipData) ? shipData : []);
-        setGeofences(Array.isArray(geoData) ? geoData : []);
-        if (!selectedShipmentId && Array.isArray(shipData) && shipData.length) setSelectedShipmentId(shipData[0].id);
+        const sanitizedShipments = sanitizeShipments<Shipment>(Array.isArray(shipData) ? shipData : []);
+        const sanitizedGeofences = sanitizeGeofences<GeofenceZone>(Array.isArray(geoData) ? geoData : []);
+        setShipments(sanitizedShipments);
+        setGeofences(sanitizedGeofences);
+        const firstShipmentId = sanitizedShipments[0]?.id;
+        if (!selectedShipmentId && firstShipmentId) setSelectedShipmentId(firstShipmentId);
       } catch (error) {
         setShipments([]);
         setGeofences([]);
@@ -263,9 +278,12 @@ function App() {
           shipRes.json().catch(() => null),
           geoRes.json().catch(() => null)
         ]);
-        setShipments(Array.isArray(shipData) ? shipData : []);
-        setGeofences(Array.isArray(geoData) ? geoData : []);
-        if (!selectedShipmentId && Array.isArray(shipData) && shipData.length) setSelectedShipmentId(shipData[0].id);
+        const sanitizedShipments = sanitizeShipments<Shipment>(Array.isArray(shipData) ? shipData : []);
+        const sanitizedGeofences = sanitizeGeofences<GeofenceZone>(Array.isArray(geoData) ? geoData : []);
+        setShipments(sanitizedShipments);
+        setGeofences(sanitizedGeofences);
+        const firstShipmentId = sanitizedShipments[0]?.id;
+        if (!selectedShipmentId && firstShipmentId) setSelectedShipmentId(firstShipmentId);
       } catch (error) {
         setShipments([]);
         setGeofences([]);
@@ -284,10 +302,10 @@ function App() {
     [shipments, selectedShipmentId]
   );
 
-  const activeRoute = selectedShipment?.route || [];
-  const mapCenter = selectedShipment?.coords || ([34.0522, -118.2437] as [number, number]);
+  const activeRoute = getValidRoute(selectedShipment?.route);
+  const mapCenter = isCoordinatePair(selectedShipment?.coords) ? selectedShipment.coords : defaultMapCenter;
   const trackedMapKey = trackedShipment ? `${trackedShipment.id}-${trackedShipment.status}` : 'track-map';
-  const trackedMapBounds = trackedShipment?.route && trackedShipment.route.length ? trackedShipment.route : [mapCenter];
+  const trackedMapBounds = getValidRoute(trackedShipment?.route).length ? getValidRoute(trackedShipment?.route) : [mapCenter];
 
   useEffect(() => {
     if (!isTrackRoute) return undefined;
@@ -295,7 +313,7 @@ function App() {
       const response = await fetch('/api/public/shipments');
       if (!response.ok) return;
       const shipData = await response.json();
-      setShipments(shipData);
+      setShipments(sanitizeShipments<Shipment>(Array.isArray(shipData) ? shipData : []));
     };
 
     poll();
@@ -608,11 +626,11 @@ function App() {
       }
 
       const payload = await response.json().catch(() => null);
-      const latest = Array.isArray(payload) ? payload : Array.isArray(payload?.rows) ? payload.rows : [];
-      const found = latest.find((shipment: Shipment) => shipment.id.toLowerCase() === query);
+      const latest = sanitizeShipments<Shipment>(Array.isArray(payload) ? payload : Array.isArray(payload?.rows) ? payload.rows : []);
+      const found = latest.find((shipment) => shipment.id.toLowerCase() === query);
 
       if (found) {
-        setShipments(Array.isArray(latest) ? latest : []);
+        setShipments(latest);
         setSelectedShipmentId(found.id);
         setTrackedShipment(found);
         setIsPackageImageOpen(false);
@@ -873,8 +891,12 @@ function App() {
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
                 {selectedShipment && (
                   <>
-                    <Marker position={selectedShipment.coords} icon={markerIcon as any} />
-                    <Polyline pathOptions={{ color: '#f59e0b', weight: 5 }} positions={activeRoute} />
+                    {isCoordinatePair(selectedShipment.coords) && (
+                      <Marker position={selectedShipment.coords} icon={markerIcon as any} />
+                    )}
+                    {activeRoute.length > 0 && (
+                      <Polyline pathOptions={{ color: '#f59e0b', weight: 5 }} positions={activeRoute} />
+                    )}
                   </>
                 )}
                 {geofences.map((zone) => (
@@ -1477,18 +1499,20 @@ function App() {
                   <div className="map-frame" style={{ height: 360 }}>
                     <MapContainer key={trackedMapKey} bounds={trackedMapBounds} boundsOptions={{ padding: [40, 40] }} scrollWheelZoom className="map-frame-inner">
                       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
-                      {trackedShipment.route.map((position, index) => (
+                      {getValidRoute(trackedShipment.route).map((position, index, routePoints) => (
                         <Marker
                           key={`route-point-${index}`}
                           position={position}
                           icon={markerIcon as any}
                         >
                           <Popup>
-                            {index === 0 ? 'Origin' : index === trackedShipment.route.length - 1 ? 'Destination' : `Stop ${index + 1}`}
+                            {index === 0 ? 'Origin' : index === routePoints.length - 1 ? 'Destination' : `Stop ${index + 1}`}
                           </Popup>
                         </Marker>
                       ))}
-                      <Polyline pathOptions={{ color: '#f59e0b', weight: 5 }} positions={trackedShipment.route} />
+                      {getValidRoute(trackedShipment.route).length > 0 && (
+                        <Polyline pathOptions={{ color: '#f59e0b', weight: 5 }} positions={getValidRoute(trackedShipment.route)} />
+                      )}
                       {geofences.map((zone) => (
                         <Circle
                           key={zone.label}
