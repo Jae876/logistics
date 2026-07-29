@@ -220,31 +220,56 @@ function App() {
 
   useEffect(() => {
     const fetchPublic = async () => {
-      const [shipRes, geoRes] = await Promise.all([
-        fetch('/api/public/shipments'),
-        fetch('/api/public/geofences')
-      ]);
-      const [shipData, geoData] = await Promise.all([shipRes.json(), geoRes.json()]);
-      setShipments(shipData);
-      setGeofences(geoData);
-      if (!selectedShipmentId && shipData.length) setSelectedShipmentId(shipData[0].id);
+      try {
+        const [shipRes, geoRes] = await Promise.all([
+          fetch('/api/public/shipments'),
+          fetch('/api/public/geofences')
+        ]);
+
+        if (!shipRes.ok || !geoRes.ok) {
+          setShipments([]);
+          setGeofences([]);
+          return;
+        }
+
+        const [shipData, geoData] = await Promise.all([
+          shipRes.json(),
+          geoRes.json()
+        ]);
+        setShipments(Array.isArray(shipData) ? shipData : []);
+        setGeofences(Array.isArray(geoData) ? geoData : []);
+        if (!selectedShipmentId && Array.isArray(shipData) && shipData.length) setSelectedShipmentId(shipData[0].id);
+      } catch (error) {
+        setShipments([]);
+        setGeofences([]);
+      }
     };
 
     const fetchAdmin = async () => {
       if (!adminToken) return;
-      const [shipRes, geoRes] = await Promise.all([
-        fetch('/api/admin/shipments', { headers: getAdminHeaders() }),
-        fetch('/api/admin/geofences', { headers: getAdminHeaders() })
-      ]);
-      if (!shipRes.ok || !geoRes.ok) {
-        setAdminToken('');
-        localStorage.removeItem('adminToken');
-        return;
+      try {
+        const [shipRes, geoRes] = await Promise.all([
+          fetch('/api/admin/shipments', { headers: getAdminHeaders() }),
+          fetch('/api/admin/geofences', { headers: getAdminHeaders() })
+        ]);
+        if (!shipRes.ok || !geoRes.ok) {
+          setAdminToken('');
+          localStorage.removeItem('adminToken');
+          setShipments([]);
+          setGeofences([]);
+          return;
+        }
+        const [shipData, geoData] = await Promise.all([
+          shipRes.json(),
+          geoRes.json()
+        ]);
+        setShipments(Array.isArray(shipData) ? shipData : []);
+        setGeofences(Array.isArray(geoData) ? geoData : []);
+        if (!selectedShipmentId && Array.isArray(shipData) && shipData.length) setSelectedShipmentId(shipData[0].id);
+      } catch (error) {
+        setShipments([]);
+        setGeofences([]);
       }
-      const [shipData, geoData] = await Promise.all([shipRes.json(), geoRes.json()]);
-      setShipments(shipData);
-      setGeofences(geoData);
-      if (!selectedShipmentId && shipData.length) setSelectedShipmentId(shipData[0].id);
     };
 
     if (isAdminRoute) {
@@ -574,18 +599,19 @@ function App() {
     }
 
     const findShipment = (list: Shipment[]) => list.find((shipment) => shipment.id.toLowerCase() === query);
-    let found = findShipment(shipments);
+    let found: Shipment | undefined = findShipment(shipments);
 
     if (!found) {
       try {
         const response = await fetch('/api/public/shipments');
         if (response.ok) {
           const latest = await response.json();
-          setShipments(latest);
-          found = findShipment(latest);
+          setShipments(Array.isArray(latest) ? latest : []);
+          found = findShipment(Array.isArray(latest) ? latest : []);
         }
       } catch (error) {
-        // ignore fetch errors here; fallback to not found state
+        setShipments([]);
+        found = undefined;
       }
     }
 
