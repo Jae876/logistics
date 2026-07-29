@@ -564,19 +564,42 @@ function App() {
     setAdminMessage('Shipment removed.');
   };
 
-  const performTracking = () => {
+  const performTracking = async () => {
     const query = trackQuery.trim().toLowerCase();
-    const found = shipments.find((shipment) => shipment.id.toLowerCase() === query);
+    if (!query) {
+      setTrackedShipment(null);
+      setIsPackageImageOpen(false);
+      navigate('/track');
+      return;
+    }
+
+    const findShipment = (list: Shipment[]) => list.find((shipment) => shipment.id.toLowerCase() === query);
+    let found = findShipment(shipments);
+
+    if (!found) {
+      try {
+        const response = await fetch('/api/public/shipments');
+        if (response.ok) {
+          const latest = await response.json();
+          setShipments(latest);
+          found = findShipment(latest);
+        }
+      } catch (error) {
+        // ignore fetch errors here; fallback to not found state
+      }
+    }
+
     if (found) {
       setSelectedShipmentId(found.id);
       setTrackedShipment(found);
       setIsPackageImageOpen(false);
       navigate('/track');
-    } else {
-      setTrackedShipment(null);
-      setIsPackageImageOpen(false);
-      navigate('/track');
+      return;
     }
+
+    setTrackedShipment(null);
+    setIsPackageImageOpen(false);
+    navigate('/track');
   };
 
   const handleViewDetails = (shipment: Shipment) => {
