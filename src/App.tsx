@@ -233,8 +233,8 @@ function App() {
     const fetchAdmin = async () => {
       if (!adminToken) return;
       const [shipRes, geoRes] = await Promise.all([
-        fetch('/api/shipments', { headers: getAdminHeaders() }),
-        fetch('/api/geofences', { headers: getAdminHeaders() })
+        fetch('/api/admin/shipments', { headers: getAdminHeaders() }),
+        fetch('/api/admin/geofences', { headers: getAdminHeaders() })
       ]);
       if (!shipRes.ok || !geoRes.ok) {
         setAdminToken('');
@@ -446,7 +446,7 @@ function App() {
     if (!adminLoggedIn) return;
 
     const createdId = generatedTrackingId || generateTrackingId();
-    const response = await fetch('/api/shipments', {
+    const response = await fetch('/api/admin/shipments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
       body: JSON.stringify({
@@ -495,7 +495,7 @@ function App() {
     setAdminMessage('');
     if (!adminLoggedIn) return;
 
-    const response = await fetch(`/api/shipments/${shipmentId}`, {
+    const response = await fetch(`/api/admin/shipments?id=${encodeURIComponent(shipmentId)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
       body: JSON.stringify({
@@ -542,7 +542,7 @@ function App() {
     setAdminMessage('');
     if (!adminLoggedIn) return;
 
-    const response = await fetch(`/api/shipments/${shipmentId}`, {
+    const response = await fetch(`/api/admin/shipments?id=${encodeURIComponent(shipmentId)}`, {
       method: 'DELETE',
       headers: getAdminHeaders()
     });
