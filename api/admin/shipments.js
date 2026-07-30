@@ -98,6 +98,15 @@ export default async function handler(req, res) {
     const id = body.id || `TRK-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
     const q = `INSERT INTO shipments(id,status,origin,destination,eta,service,weight,rate,progress,coords,route,sender_name,sender_email,sender_phone,sender_address,receiver_name,receiver_email,receiver_phone,receiver_address,package_description,carrier_name,carrier_reference,quantity,payment_mode,shipment_mode,dispatch_date,delivery_date,delivery_time,tracking_image,created_at,updated_at)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29, now(), now()) RETURNING *`;
+    // normalize coords/route so string input is parsed into arrays before JSONB insert
+    const normalizeInput = (v) => {
+      if (Array.isArray(v)) return v;
+      if (typeof v === 'string') {
+        try { return JSON.parse(v); } catch { return []; }
+      }
+      return [];
+    };
+
     const params = [
       id,
       body.status || 'Pending confirmation',
@@ -108,8 +117,8 @@ export default async function handler(req, res) {
       body.weight || null,
       body.rate || null,
       body.progress || 0,
-      JSON.stringify(body.coords || []),
-      JSON.stringify(body.route || []),
+      JSON.stringify(normalizeInput(body.coords || [])),
+      JSON.stringify(normalizeInput(body.route || [])),
       body.senderName || null,
       body.senderEmail || null,
       body.senderPhone || null,
@@ -156,7 +165,13 @@ export default async function handler(req, res) {
       const col = mapping[key] || key;
       if (['status','origin','destination','eta','service','weight','rate','progress','coords','route','sender_name','sender_email','sender_phone','sender_address','receiver_name','receiver_email','receiver_phone','receiver_address','package_description','carrier_name','carrier_reference','quantity','payment_mode','shipment_mode','dispatch_date','delivery_date','delivery_time','tracking_image'].includes(col)) {
         fields.push(`${col} = $${idx}`);
-        params.push(['coords','route'].includes(key) ? JSON.stringify(body[key]) : body[key]);
+        if (['coords','route'].includes(key)) {
+          const val = body[key];
+          const parsed = Array.isArray(val) ? val : (typeof val === 'string' ? (() => { try { return JSON.parse(val); } catch { return []; } })() : []);
+          params.push(JSON.stringify(parsed));
+        } else {
+          params.push(body[key]);
+        }
         idx += 1;
       }
     }
