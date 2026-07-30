@@ -1033,54 +1033,26 @@ function App() {
           <div className="live-map">
             <div className="route-overlay-card">
               <div className="overlay-heading">
-                <span>Live route visibility</span>
-                <h4>{selectedShipment?.origin} → {selectedShipment?.destination}</h4>
+                <span>Network visibility</span>
+                <h4>Global shipment coverage</h4>
               </div>
               <div className="overlay-grid">
                 <div>
-                  <span>Current status</span>
-                  <strong>{selectedShipment?.status || 'N/A'}</strong>
+                  <span>Active shipments</span>
+                  <strong>{shipments.length}</strong>
                 </div>
                 <div>
-                  <span>Estimated arrival</span>
-                  <strong>{selectedShipment?.eta || 'TBD'}</strong>
+                  <span>Live regions</span>
+                  <strong>{geofences.length}</strong>
                 </div>
                 <div>
-                  <span>Route stops</span>
-                  <strong>{activeRoute.length}</strong>
+                  <span>Map refresh</span>
+                  <strong>Every 10s</strong>
                 </div>
               </div>
             </div>
             <MapContainer bounds={mapBounds} boundsOptions={{ padding: [40, 40] }} scrollWheelZoom className="map-frame">
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
-                {smoothedRouteLayers.map((routePoints, index) => (
-                  <Polyline
-                    key={`route-${index}`}
-                    pathOptions={{ color: 'rgba(14, 165, 233, 0.22)', weight: 3, dashArray: '6 8', lineJoin: 'round' }}
-                    positions={routePoints}
-                  />
-                ))}
-                {selectedShipment && activeRoute.length > 0 && (
-                  <>
-                    <Polyline pathOptions={{ color: '#f59e0b', weight: 6, opacity: 0.98, lineJoin: 'round' }} positions={smoothedActiveRoute} />
-                    {showActiveWaypoints && smoothedActiveRoute.length > 2 && smoothedActiveRoute.slice(1, -1).map((p, wi) => (
-                      <Marker key={`wp-${wi}`} position={p} icon={waypointIcon as any} />
-                    ))}
-                    <Marker position={selectedRouteOrigin} icon={originIcon as any}>
-                      <Tooltip permanent direction="top" offset={[0, -12]}>
-                        Origin
-                      </Tooltip>
-                    </Marker>
-                    <Marker position={selectedRouteDestination} icon={destinationIcon as any}>
-                      <Tooltip permanent direction="top" offset={[0, -12]}>
-                        Destination
-                      </Tooltip>
-                    </Marker>
-                    <Marker position={selectedShipment.coords} icon={liveMarkerIcon as any}>
-                      <Popup>Live position</Popup>
-                    </Marker>
-                  </>
-                )}
                 {geofences.map((zone) => (
                   <Circle key={zone.label} center={zone.center} radius={zone.radius} pathOptions={{ color: '#60a5fa', fillColor: '#60a5fa', fillOpacity: 0.12 }} />
                 ))}
