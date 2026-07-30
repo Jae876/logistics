@@ -11,6 +11,16 @@ const parseOrsCoordinates = (coords) => {
   return [lat, lng];
 };
 
+const simplifyRoute = (coords, maxPoints = 80) => {
+  if (!Array.isArray(coords) || coords.length <= maxPoints) return coords;
+  const step = Math.ceil(coords.length / maxPoints);
+  const simplified = coords.filter((_, index) => index % step === 0);
+  if (simplified[simplified.length - 1] !== coords[coords.length - 1]) {
+    simplified.push(coords[coords.length - 1]);
+  }
+  return simplified;
+};
+
 const fetchWithTimeout = async (url, options = {}, timeoutMs = 4000) => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -72,9 +82,11 @@ export async function getRouteFromOrs(origin, destination) {
   const coords = payload?.features?.[0]?.geometry?.coordinates;
   if (!Array.isArray(coords)) return null;
 
-  return coords
-    .map((pair) => parseOrsCoordinates(pair))
-    .filter(Boolean);
+  return simplifyRoute(
+    coords
+      .map((pair) => parseOrsCoordinates(pair))
+      .filter(Boolean)
+  );
 }
 
 export function isOpenRouteServiceConfigured() {
