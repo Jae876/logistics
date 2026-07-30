@@ -656,6 +656,7 @@ function App() {
     const created = await response.json();
     setShipments((current) => [created, ...current]);
     setSelectedShipmentId(created.id);
+    setTrackedShipment(created);
     setGeneratedTrackingId(created.id);
     setTrackingForm(defaultTrackingForm);
     setAdminView('dashboard');
@@ -706,6 +707,7 @@ function App() {
     const updated = await response.json();
     setShipments((current) => current.map((item) => (item.id === shipmentId ? updated : item)));
     setSelectedShipmentId(updated.id);
+    setTrackedShipment(updated);
     setAdminView('dashboard');
     setEditingShipmentId('');
     setAdminMessage(`Shipment ${updated.id} updated.`);
