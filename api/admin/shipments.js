@@ -29,6 +29,27 @@ const normalizeJsonField = (value) => {
   return [];
 };
 
+const CITY_COORDS = {
+  'los angeles': [34.0522, -118.2437],
+  'new york': [40.7128, -74.006],
+  'houston': [29.7604, -95.3698],
+  'chicago': [41.8781, -87.6298],
+  'hamburg': [53.5511, 9.9937],
+  'lagos': [6.5244, 3.3792],
+  'san jose': [37.3382, -121.8863]
+};
+
+const parseLatLngString = (s) => {
+  if (!s || typeof s !== 'string') return null;
+  const m = s.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+  if (m) return [Number(m[1]), Number(m[2])];
+  const lower = s.toLowerCase();
+  for (const key of Object.keys(CITY_COORDS)) {
+    if (lower.includes(key)) return CITY_COORDS[key];
+  }
+  return null;
+};
+
 const normalizeShipment = (shipment) => ({
   ...shipment,
   route: normalizeJsonField(shipment.route),
@@ -71,8 +92,11 @@ export default async function handler(req, res) {
         weight: body.weight || '0 KG',
         rate: body.rate || '$0',
         progress: Number(body.progress || 0),
-        coords: body.coords || [34.0522, -118.2437],
-        route: body.route || [[34.0522, -118.2437], [40.7128, -74.006]],
+        coords: body.coords || parseLatLngString(body.origin) || [34.0522, -118.2437],
+        route: body.route || [
+          parseLatLngString(body.origin) || [34.0522, -118.2437],
+          parseLatLngString(body.destination) || [40.7128, -74.006]
+        ],
         senderName: body.senderName || '',
         senderEmail: body.senderEmail || '',
         senderPhone: body.senderPhone || '',
@@ -107,6 +131,21 @@ export default async function handler(req, res) {
       return [];
     };
 
+    const derivedCoords = (() => {
+      const fromBody = normalizeInput(body.coords);
+      if (fromBody && fromBody.length) return fromBody;
+      const parsed = parseLatLngString(body.coords) || parseLatLngString(body.origin);
+      return parsed || [34.0522, -118.2437];
+    })();
+
+    const derivedRoute = (() => {
+      const fromBody = normalizeInput(body.route);
+      if (fromBody && fromBody.length) return fromBody;
+      const originPt = parseLatLngString(body.origin) || derivedCoords;
+      const destPt = parseLatLngString(body.destination) || [40.7128, -74.006];
+      return [originPt, destPt];
+    })();
+
     const params = [
       id,
       body.status || 'Pending confirmation',
@@ -117,8 +156,8 @@ export default async function handler(req, res) {
       body.weight || null,
       body.rate || null,
       body.progress || 0,
-      JSON.stringify(normalizeInput(body.coords || [])),
-      JSON.stringify(normalizeInput(body.route || [])),
+      JSON.stringify(derivedCoords),
+      JSON.stringify(derivedRoute),
       body.senderName || null,
       body.senderEmail || null,
       body.senderPhone || null,
@@ -153,6 +192,22 @@ export default async function handler(req, res) {
       return res.json(normalizeShipment(seededShipmentsList[index]));
     }
     const body = req.body || {};
+    // augment body with derived coords/route if origin/destination provided but coords/route absent
+    const augBody = { ...body };
+    try {
+      if (!('coords' in augBody) && (augBody.origin || augBody.destination)) {
+        const derived = parseLatLngString(augBody.origin) || parseLatLngString(augBody.destination) || [34.0522, -118.2437];
+        augBody.coords = JSON.stringify(derived);
+      }
+      if (!('route' in augBody) && (augBody.origin || augBody.destination)) {
+        const originPt = parseLatLngString(augBody.origin) || (augBody.coords ? normalizeJsonField(augBody.coords)[0] : null) || [34.0522, -118.2437];
+        const destPt = parseLatLngString(augBody.destination) || [40.7128, -74.006];
+        augBody.route = JSON.stringify([originPt, destPt]);
+      }
+    } catch (err) {
+      // fall back silently
+    }
+
     const fields = [];
     const params = [];
     let idx = 1;
@@ -161,16 +216,16 @@ export default async function handler(req, res) {
       receiverName: 'receiver_name', receiverEmail: 'receiver_email', receiverPhone: 'receiver_phone', receiverAddress: 'receiver_address',
       packageDescription: 'package_description', carrierName: 'carrier_name', carrierReference: 'carrier_reference'
     };
-    for (const key of Object.keys(body)) {
+    for (const key of Object.keys(augBody)) {
       const col = mapping[key] || key;
       if (['status','origin','destination','eta','service','weight','rate','progress','coords','route','sender_name','sender_email','sender_phone','sender_address','receiver_name','receiver_email','receiver_phone','receiver_address','package_description','carrier_name','carrier_reference','quantity','payment_mode','shipment_mode','dispatch_date','delivery_date','delivery_time','tracking_image'].includes(col)) {
         fields.push(`${col} = $${idx}`);
         if (['coords','route'].includes(key)) {
-          const val = body[key];
+          const val = augBody[key];
           const parsed = Array.isArray(val) ? val : (typeof val === 'string' ? (() => { try { return JSON.parse(val); } catch { return []; } })() : []);
           params.push(JSON.stringify(parsed));
         } else {
-          params.push(body[key]);
+          params.push(augBody[key]);
         }
         idx += 1;
       }
