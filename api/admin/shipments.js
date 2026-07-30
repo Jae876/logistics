@@ -133,7 +133,7 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const id = body.id || `TRK-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
     const q = `INSERT INTO shipments(id,status,origin,destination,eta,service,weight,rate,outstanding_fee,progress,coords,route,sender_name,sender_email,sender_phone,sender_address,receiver_name,receiver_email,receiver_phone,receiver_address,package_description,carrier_name,carrier_reference,quantity,payment_mode,shipment_mode,dispatch_date,delivery_date,delivery_time,tracking_image,created_at,updated_at)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29, now(), now()) RETURNING *`;
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30, now(), now()) RETURNING *`;
     // normalize coords/route so string input is parsed into arrays before JSONB insert
     const normalizeInput = (v) => {
       if (Array.isArray(v)) return v;

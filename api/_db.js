@@ -23,6 +23,7 @@ export async function runMigrationsIfNeeded() {
 
   const sql = await fs.readFile(new URL('../migrations/001_create_tables.sql', import.meta.url), 'utf8');
   await pool.query(sql);
+  await pool.query("ALTER TABLE shipments ADD COLUMN IF NOT EXISTS outstanding_fee TEXT;");
 
   try {
     const userCheck = await pool.query("SELECT id FROM admin_users WHERE username = $1", [process.env.ADMIN_USER || 'admin']);

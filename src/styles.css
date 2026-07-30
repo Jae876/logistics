@@ -1780,6 +1780,51 @@ textarea:focus {
   .live-map {
     min-height: auto;
   }
+
+  .admin-table .header-row {
+    display: none;
+  }
+
+  .admin-table .body-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 18px;
+  }
+
+  .admin-table .body-row.selected {
+    border-color: #fbbf24;
+    background: #fef3c7;
+  }
+
+  .admin-table .body-row > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .admin-table .package-cell {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .admin-table .package-cell strong,
+  .admin-table .package-cell span {
+    margin: 0;
+  }
+
+  .admin-table .action-group {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .admin-table .icon-button {
+    width: 42px;
+    height: 42px;
+  }
 }
 
 @media (max-width: 520px) {
