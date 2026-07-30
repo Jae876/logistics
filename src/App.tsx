@@ -120,6 +120,13 @@ const destinationIcon = L.divIcon({
   popupAnchor: [0, -14]
 });
 
+const waypointIcon = L.divIcon({
+  className: 'waypoint-pin',
+  html: '<span class="waypoint-dot"></span>',
+  iconSize: [14, 14],
+  iconAnchor: [7, 7]
+});
+
 const defaultTrackingForm: TrackingFormData = {
   senderName: 'John Doe',
   senderEmail: 'johndoe@globalmail.com',
@@ -198,6 +205,27 @@ const smoothRoute = (points: [number, number][], segmentsPerSegment = 8): [numbe
   }
   // include the final point
   out.push(p[p.length - 1]);
+  return out;
+};
+
+// Generate a pleasing curved route between two points when no detailed route is available.
+const generateArcRoute = (points: [number, number][], segments = 24, curvature = 0.16): [number, number][] => {
+  if (!Array.isArray(points) || points.length < 2) return points || [];
+  const a = points[0];
+  const b = points[points.length - 1];
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const baseDist = Math.sqrt(dx * dx + dy * dy) || 1e-6;
+  const perp = [-dy / baseDist, dx / baseDist];
+  const out: [number, number][] = [];
+
+  for (let i = 0; i <= segments; i += 1) {
+    const t = i / segments;
+    const lat = a[0] + dx * t;
+    const lng = a[1] + dy * t;
+    const offset = Math.sin(Math.PI * t) * curvature * baseDist;
+    out.push([lat + perp[0] * offset, lng + perp[1] * offset]);
+  }
   return out;
 };
 
@@ -379,8 +407,14 @@ function App() {
   const selectedRouteDestination = activeRoute[activeRoute.length - 1] || mapCenter;
   const trackedMapKey = trackedShipment ? `${trackedShipment.id}-${trackedShipment.status}` : 'track-map';
   const trackedRoute = useMemo(() => getValidRoute(trackedShipment?.route), [trackedShipment]);
-  const smoothedActiveRoute = useMemo(() => smoothRoute(activeRoute, 10), [activeRoute]);
-  const smoothedTrackedRoute = useMemo(() => smoothRoute(trackedRoute, 10), [trackedRoute]);
+  const smoothedActiveRoute = useMemo(() => {
+    if (activeRoute.length <= 2) return generateArcRoute(activeRoute, 30, 0.12);
+    return smoothRoute(activeRoute, 10);
+  }, [activeRoute]);
+  const smoothedTrackedRoute = useMemo(() => {
+    if (trackedRoute.length <= 2) return generateArcRoute(trackedRoute, 30, 0.12);
+    return smoothRoute(trackedRoute, 10);
+  }, [trackedRoute]);
   const trackedMapBounds = useMemo(() => {
     if (trackedRoute.length > 1) return trackedRoute;
     if (trackedRoute.length === 1) return [trackedRoute[0], trackedShipment?.coords || mapCenter];
@@ -1016,6 +1050,9 @@ function App() {
                 {selectedShipment && activeRoute.length > 0 && (
                   <>
                     <Polyline pathOptions={{ color: '#f59e0b', weight: 6, opacity: 0.98, lineJoin: 'round' }} positions={smoothedActiveRoute} />
+                    {smoothedActiveRoute.length > 2 && smoothedActiveRoute.slice(1, -1).map((p, wi) => (
+                      <Marker key={`wp-${wi}`} position={p} icon={waypointIcon as any} />
+                    ))}
                     <Marker position={selectedRouteOrigin} icon={originIcon as any}>
                       <Tooltip permanent direction="top" offset={[0, -12]}>
                         Origin
@@ -1662,6 +1699,9 @@ function App() {
                       {trackedRoute.length > 0 && (
                         <>
                           <Polyline pathOptions={{ color: '#fbbf24', weight: 8, opacity: 0.92, lineJoin: 'round' }} positions={smoothedTrackedRoute} />
+                          {smoothedTrackedRoute.length > 2 && smoothedTrackedRoute.slice(1, -1).map((p, wi) => (
+                            <Marker key={`twp-${wi}`} position={p} icon={waypointIcon as any} />
+                          ))}
                           <Marker position={trackedRoute[0]} icon={originIcon as any}>
                             <Popup>Origin</Popup>
                             <Tooltip permanent direction="top" offset={[0, -12]}>Origin</Tooltip>
