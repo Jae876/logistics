@@ -75,6 +75,8 @@ type TrackingFormData = {
   deliveryTime: string;
   status: string;
   trackingImage: string;
+  route: string;
+  coords: string;
 };
 
 type NewZoneData = {
@@ -144,6 +146,10 @@ const defaultTrackingForm: TrackingFormData = {
   deliveryTime: '08:00',
   status: 'Pending confirmation',
   trackingImage: ''
+  ,
+  // route stored as JSON string in the form; admin can paste a JSON array of [lat, lng]
+  route: JSON.stringify([[34.0522, -118.2437], [40.7128, -74.006]], null, 2),
+  coords: JSON.stringify([34.0522, -118.2437])
 };
 
 const defaultNewZone: NewZoneData = {
@@ -543,6 +549,8 @@ function App() {
       body: JSON.stringify({
         id: createdId,
         origin: trackingForm.origin,
+        coords: trackingForm.coords,
+        route: trackingForm.route,
         destination: trackingForm.destination,
         eta: trackingForm.eta,
         service: trackingForm.shipmentMode,
@@ -591,6 +599,8 @@ function App() {
       headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
       body: JSON.stringify({
         origin: trackingForm.origin,
+        coords: trackingForm.coords,
+        route: trackingForm.route,
         destination: trackingForm.destination,
         eta: trackingForm.eta,
         service: trackingForm.shipmentMode,
@@ -741,7 +751,9 @@ function App() {
       shipmentMode: shipment.shipmentMode || shipment.service,
       deliveryTime: shipment.deliveryTime || '',
       status: shipment.status,
-      trackingImage: shipment.trackingImage || ''
+      trackingImage: shipment.trackingImage || '',
+      route: shipment.route ? JSON.stringify(shipment.route, null, 2) : JSON.stringify([[34.0522, -118.2437], [40.7128, -74.006]], null, 2),
+      coords: shipment.coords ? JSON.stringify(shipment.coords) : JSON.stringify([34.0522, -118.2437])
     });
     setAdminView('add-tracking');
   };
@@ -1347,6 +1359,14 @@ function App() {
                 <label>
                   ETA
                   <input type="date" value={trackingForm.eta} onChange={(e) => setTrackingForm((prev) => ({ ...prev, eta: e.target.value }))} />
+                </label>
+                <label>
+                  Coords (JSON)
+                  <input value={trackingForm.coords} onChange={(e) => setTrackingForm((prev) => ({ ...prev, coords: e.target.value }))} />
+                </label>
+                <label>
+                  Route (JSON array of [lat, lng])
+                  <textarea rows={4} value={trackingForm.route} onChange={(e) => setTrackingForm((prev) => ({ ...prev, route: e.target.value }))} />
                 </label>
                 <label>
                   Weight
