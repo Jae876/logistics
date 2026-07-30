@@ -170,6 +170,37 @@ const getValidRoute = (route: unknown): [number, number][] => {
   return route.filter(isCoordinatePair);
 };
 
+// Smooth a polyline using Catmull-Rom spline interpolation to produce a natural-looking route
+const smoothRoute = (points: [number, number][], segmentsPerSegment = 8): [number, number][] => {
+  if (!Array.isArray(points) || points.length < 2) return points || [];
+
+  const p = points.slice();
+  const out: [number, number][] = [];
+
+  const catmullRom = (t: number, p0: number, p1: number, p2: number, p3: number) => {
+    const t2 = t * t;
+    const t3 = t2 * t;
+    return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+  };
+
+  for (let i = 0; i < p.length - 1; i += 1) {
+    const p0 = i === 0 ? p[i] : p[i - 1];
+    const p1 = p[i];
+    const p2 = p[i + 1];
+    const p3 = i + 2 < p.length ? p[i + 2] : p[i + 1];
+
+    for (let s = 0; s < segmentsPerSegment; s += 1) {
+      const t = s / segmentsPerSegment;
+      const lat = catmullRom(t, p0[0], p1[0], p2[0], p3[0]);
+      const lng = catmullRom(t, p0[1], p1[1], p2[1], p3[1]);
+      out.push([lat, lng]);
+    }
+  }
+  // include the final point
+  out.push(p[p.length - 1]);
+  return out;
+};
+
 type BackgroundKey = 'default' | 'air' | 'ocean' | 'land' | 'warehouse';
 
 const serviceCards = [
@@ -339,6 +370,7 @@ function App() {
     () => shipments.map((shipment) => getValidRoute(shipment.route)).filter((route) => route.length > 0),
     [shipments]
   );
+  const smoothedRouteLayers = useMemo(() => routeLayers.map((r) => smoothRoute(r, 6)), [routeLayers]);
   const mapBounds = useMemo(() => {
     const boundsPoints = routeLayers.length ? routeLayers.flat() : [mapCenter];
     return boundsPoints.length ? boundsPoints : [mapCenter];
@@ -347,6 +379,8 @@ function App() {
   const selectedRouteDestination = activeRoute[activeRoute.length - 1] || mapCenter;
   const trackedMapKey = trackedShipment ? `${trackedShipment.id}-${trackedShipment.status}` : 'track-map';
   const trackedRoute = useMemo(() => getValidRoute(trackedShipment?.route), [trackedShipment]);
+  const smoothedActiveRoute = useMemo(() => smoothRoute(activeRoute, 10), [activeRoute]);
+  const smoothedTrackedRoute = useMemo(() => smoothRoute(trackedRoute, 10), [trackedRoute]);
   const trackedMapBounds = useMemo(() => {
     if (trackedRoute.length > 1) return trackedRoute;
     if (trackedRoute.length === 1) return [trackedRoute[0], trackedShipment?.coords || mapCenter];
@@ -972,22 +1006,22 @@ function App() {
             </div>
             <MapContainer bounds={mapBounds} boundsOptions={{ padding: [40, 40] }} scrollWheelZoom className="map-frame">
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
-                {routeLayers.map((routePoints, index) => (
+                {smoothedRouteLayers.map((routePoints, index) => (
                   <Polyline
                     key={`route-${index}`}
-                    pathOptions={{ color: 'rgba(14, 165, 233, 0.28)', weight: 3, dashArray: '6 8' }}
+                    pathOptions={{ color: 'rgba(14, 165, 233, 0.22)', weight: 3, dashArray: '6 8', lineJoin: 'round' }}
                     positions={routePoints}
                   />
                 ))}
                 {selectedShipment && activeRoute.length > 0 && (
                   <>
-                    <Polyline pathOptions={{ color: '#f59e0b', weight: 5 }} positions={activeRoute} />
-                    <Marker position={selectedRouteOrigin} icon={markerIcon as any}>
+                    <Polyline pathOptions={{ color: '#f59e0b', weight: 6, opacity: 0.98, lineJoin: 'round' }} positions={smoothedActiveRoute} />
+                    <Marker position={selectedRouteOrigin} icon={originIcon as any}>
                       <Tooltip permanent direction="top" offset={[0, -12]}>
                         Origin
                       </Tooltip>
                     </Marker>
-                    <Marker position={selectedRouteDestination} icon={markerIcon as any}>
+                    <Marker position={selectedRouteDestination} icon={destinationIcon as any}>
                       <Tooltip permanent direction="top" offset={[0, -12]}>
                         Destination
                       </Tooltip>
@@ -1627,7 +1661,7 @@ function App() {
                       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
                       {trackedRoute.length > 0 && (
                         <>
-                          <Polyline pathOptions={{ color: '#fbbf24', weight: 8, opacity: 0.92 }} positions={trackedRoute} />
+                          <Polyline pathOptions={{ color: '#fbbf24', weight: 8, opacity: 0.92, lineJoin: 'round' }} positions={smoothedTrackedRoute} />
                           <Marker position={trackedRoute[0]} icon={originIcon as any}>
                             <Popup>Origin</Popup>
                             <Tooltip permanent direction="top" offset={[0, -12]}>Origin</Tooltip>
