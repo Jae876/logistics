@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
-import { Circle, MapContainer, Marker, Popup, Polyline, TileLayer } from 'react-leaflet';
+import { Circle, MapContainer, Marker, Popup, Polyline, TileLayer, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import QRCode from 'qrcode';
 import 'leaflet/dist/leaflet.css';
@@ -92,6 +92,14 @@ const markerIcon = new L.Icon({
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
   shadowSize: [41, 41]
+});
+
+const liveMarkerIcon = L.divIcon({
+  className: 'live-marker-icon',
+  html: '<span class="live-marker-dot"></span>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+  popupAnchor: [0, -14]
 });
 
 const defaultTrackingForm: TrackingFormData = {
@@ -305,6 +313,16 @@ function App() {
 
   const activeRoute = getValidRoute(selectedShipment?.route);
   const mapCenter = isCoordinatePair(selectedShipment?.coords) ? selectedShipment.coords : defaultMapCenter;
+  const routeLayers = useMemo(
+    () => shipments.map((shipment) => getValidRoute(shipment.route)).filter((route) => route.length > 0),
+    [shipments]
+  );
+  const mapBounds = useMemo(() => {
+    const boundsPoints = routeLayers.length ? routeLayers.flat() : [mapCenter];
+    return boundsPoints.length ? boundsPoints : [mapCenter];
+  }, [routeLayers, mapCenter]);
+  const selectedRouteOrigin = activeRoute[0] || mapCenter;
+  const selectedRouteDestination = activeRoute[activeRoute.length - 1] || mapCenter;
   const trackedMapKey = trackedShipment ? `${trackedShipment.id}-${trackedShipment.status}` : 'track-map';
   const trackedMapBounds = getValidRoute(trackedShipment?.route).length ? getValidRoute(trackedShipment?.route) : [mapCenter];
 
@@ -859,16 +877,51 @@ function App() {
             )}
           </div>
           <div className="live-map">
-            <MapContainer center={mapCenter} zoom={3} scrollWheelZoom className="map-frame">
+            <div className="route-overlay-card">
+              <div className="overlay-heading">
+                <span>Live route visibility</span>
+                <h4>{selectedShipment?.origin} → {selectedShipment?.destination}</h4>
+              </div>
+              <div className="overlay-grid">
+                <div>
+                  <span>Current status</span>
+                  <strong>{selectedShipment?.status || 'N/A'}</strong>
+                </div>
+                <div>
+                  <span>Estimated arrival</span>
+                  <strong>{selectedShipment?.eta || 'TBD'}</strong>
+                </div>
+                <div>
+                  <span>Route stops</span>
+                  <strong>{activeRoute.length}</strong>
+                </div>
+              </div>
+            </div>
+            <MapContainer bounds={mapBounds} boundsOptions={{ padding: [40, 40] }} scrollWheelZoom className="map-frame">
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
-                {selectedShipment && (
+                {routeLayers.map((routePoints, index) => (
+                  <Polyline
+                    key={`route-${index}`}
+                    pathOptions={{ color: 'rgba(14, 165, 233, 0.28)', weight: 3, dashArray: '6 8' }}
+                    positions={routePoints}
+                  />
+                ))}
+                {selectedShipment && activeRoute.length > 0 && (
                   <>
-                    {isCoordinatePair(selectedShipment.coords) && (
-                      <Marker position={selectedShipment.coords} icon={markerIcon as any} />
-                    )}
-                    {activeRoute.length > 0 && (
-                      <Polyline pathOptions={{ color: '#f59e0b', weight: 5 }} positions={activeRoute} />
-                    )}
+                    <Polyline pathOptions={{ color: '#f59e0b', weight: 5 }} positions={activeRoute} />
+                    <Marker position={selectedRouteOrigin} icon={markerIcon as any}>
+                      <Tooltip permanent direction="top" offset={[0, -12]}>
+                        Origin
+                      </Tooltip>
+                    </Marker>
+                    <Marker position={selectedRouteDestination} icon={markerIcon as any}>
+                      <Tooltip permanent direction="top" offset={[0, -12]}>
+                        Destination
+                      </Tooltip>
+                    </Marker>
+                    <Marker position={selectedShipment.coords} icon={liveMarkerIcon as any}>
+                      <Popup>Live position</Popup>
+                    </Marker>
                   </>
                 )}
                 {geofences.map((zone) => (
@@ -1468,7 +1521,27 @@ function App() {
               <div className="map-analytics-grid">
                 <div className="map-card">
                   <div className="card-title">Live route map</div>
-                  <div className="map-frame" style={{ height: 360 }}>
+                  <div className="map-frame map-frame-overlay-wrapper" style={{ height: 360 }}>
+                    <div className="route-overlay-card route-overlay-map">
+                      <div className="overlay-heading">
+                        <span>Live route summary</span>
+                        <h4>{trackedShipment.origin} → {trackedShipment.destination}</h4>
+                      </div>
+                      <div className="overlay-grid overlay-grid-small">
+                        <div>
+                          <span>Current status</span>
+                          <strong>{trackedShipment.status}</strong>
+                        </div>
+                        <div>
+                          <span>Progress</span>
+                          <strong>{trackedShipment.progress}%</strong>
+                        </div>
+                        <div>
+                          <span>Last update</span>
+                          <strong>{trackedShipment.eta}</strong>
+                        </div>
+                      </div>
+                    </div>
                     <MapContainer key={trackedMapKey} bounds={trackedMapBounds} boundsOptions={{ padding: [40, 40] }} scrollWheelZoom className="map-frame-inner">
                       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
                       {getValidRoute(trackedShipment.route).map((position, index, routePoints) => (
@@ -1480,10 +1553,18 @@ function App() {
                           <Popup>
                             {index === 0 ? 'Origin' : index === routePoints.length - 1 ? 'Destination' : `Stop ${index + 1}`}
                           </Popup>
+                          <Tooltip permanent direction="top" offset={[0, -12]}>
+                            {index === 0 ? 'Origin' : index === routePoints.length - 1 ? 'Destination' : `Stop ${index + 1}`}
+                          </Tooltip>
                         </Marker>
                       ))}
                       {getValidRoute(trackedShipment.route).length > 0 && (
-                        <Polyline pathOptions={{ color: '#f59e0b', weight: 5 }} positions={getValidRoute(trackedShipment.route)} />
+                        <>
+                          <Polyline pathOptions={{ color: '#f59e0b', weight: 5 }} positions={getValidRoute(trackedShipment.route)} />
+                          <Marker position={trackedShipment.coords} icon={liveMarkerIcon as any}>
+                            <Popup>Live position</Popup>
+                          </Marker>
+                        </>
                       )}
                       {geofences.map((zone) => (
                         <Circle

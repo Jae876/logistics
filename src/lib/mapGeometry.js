@@ -2,9 +2,19 @@ const DEFAULT_CENTER = [34.0522, -118.2437];
 
 const isFiniteNumber = (value) => typeof value === 'number' && Number.isFinite(value);
 
+const parseMaybeJson = (value) => {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
 const sanitizeCoordinate = (value) => {
-  if (!Array.isArray(value) || value.length < 2) return null;
-  const [lat, lng] = value;
+  const parsed = parseMaybeJson(value);
+  if (!Array.isArray(parsed) || parsed.length < 2) return null;
+  const [lat, lng] = parsed;
   if (!isFiniteNumber(lat) || !isFiniteNumber(lng)) return null;
   return [lat, lng];
 };
@@ -19,8 +29,9 @@ export const sanitizeShipments = (shipments) => {
 
   return shipments.map((shipment) => {
     const coords = sanitizeCoordinate(shipment?.coords);
-    const route = Array.isArray(shipment?.route)
-      ? shipment.route
+    const routeSource = typeof shipment?.route === 'string' ? parseMaybeJson(shipment.route) : shipment?.route;
+    const route = Array.isArray(routeSource)
+      ? routeSource
           .map((point) => sanitizeCoordinate(point))
           .filter(Boolean)
       : [];
