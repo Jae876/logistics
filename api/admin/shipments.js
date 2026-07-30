@@ -62,6 +62,7 @@ const normalizeShipment = (shipment) => ({
 const seededShipmentsList = [...seededShipments];
 
 const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+const SYNC_ORS = process.env.SYNC_ORS === 'true';
 
 export default async function handler(req, res) {
   if (pool) await runMigrationsIfNeeded();
@@ -145,7 +146,7 @@ export default async function handler(req, res) {
       if (fromBody && fromBody.length) return fromBody;
       const parsed = parseLatLngString(body.coords) || parseLatLngString(body.origin);
       if (parsed) return parsed;
-      if (isOpenRouteServiceConfigured() && body.origin) {
+      if (SYNC_ORS && isOpenRouteServiceConfigured() && body.origin) {
         const geo = await geocodeAddress(body.origin);
         if (geo) return geo;
       }
@@ -155,7 +156,7 @@ export default async function handler(req, res) {
     const derivedDestination = await (async () => {
       const parsed = parseLatLngString(body.destination);
       if (parsed) return parsed;
-      if (isOpenRouteServiceConfigured() && body.destination) {
+      if (SYNC_ORS && isOpenRouteServiceConfigured() && body.destination) {
         return await geocodeAddress(body.destination);
       }
       return [40.7128, -74.006];
@@ -166,7 +167,7 @@ export default async function handler(req, res) {
       if (fromBody && fromBody.length) return fromBody;
       const originPt = derivedCoords;
       const destPt = derivedDestination;
-      if (isOpenRouteServiceConfigured() && originPt && destPt) {
+      if (SYNC_ORS && isOpenRouteServiceConfigured() && originPt && destPt) {
         const route = await getRouteFromOrs(originPt, destPt);
         if (route && route.length) return route;
       }
