@@ -123,6 +123,8 @@ export default async function handler(req, res) {
         shipmentMode: body.shipmentMode || '',
         deliveryTime: body.deliveryTime || '',
         trackingImage: body.trackingImage || ''
+        ,
+        outstandingFee: body.outstandingFee || body.outstanding_fee || '$0'
       });
       seededShipmentsList.unshift(created);
       return res.status(201).json(created);
@@ -130,7 +132,7 @@ export default async function handler(req, res) {
 
     const body = req.body || {};
     const id = body.id || `TRK-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
-    const q = `INSERT INTO shipments(id,status,origin,destination,eta,service,weight,rate,progress,coords,route,sender_name,sender_email,sender_phone,sender_address,receiver_name,receiver_email,receiver_phone,receiver_address,package_description,carrier_name,carrier_reference,quantity,payment_mode,shipment_mode,dispatch_date,delivery_date,delivery_time,tracking_image,created_at,updated_at)
+    const q = `INSERT INTO shipments(id,status,origin,destination,eta,service,weight,rate,outstanding_fee,progress,coords,route,sender_name,sender_email,sender_phone,sender_address,receiver_name,receiver_email,receiver_phone,receiver_address,package_description,carrier_name,carrier_reference,quantity,payment_mode,shipment_mode,dispatch_date,delivery_date,delivery_time,tracking_image,created_at,updated_at)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29, now(), now()) RETURNING *`;
     // normalize coords/route so string input is parsed into arrays before JSONB insert
     const normalizeInput = (v) => {
@@ -183,6 +185,7 @@ export default async function handler(req, res) {
       body.service || 'Freight',
       body.weight || null,
       body.rate || null,
+      body.outstandingFee || body.outstanding_fee || null,
       body.progress || 0,
       JSON.stringify(derivedCoords),
       JSON.stringify(derivedRoute),
@@ -259,9 +262,10 @@ export default async function handler(req, res) {
       receiverName: 'receiver_name', receiverEmail: 'receiver_email', receiverPhone: 'receiver_phone', receiverAddress: 'receiver_address',
       packageDescription: 'package_description', carrierName: 'carrier_name', carrierReference: 'carrier_reference'
     };
+    mapping.outstandingFee = 'outstanding_fee';
     for (const key of Object.keys(augBody)) {
       const col = mapping[key] || key;
-      if (['status','origin','destination','eta','service','weight','rate','progress','coords','route','sender_name','sender_email','sender_phone','sender_address','receiver_name','receiver_email','receiver_phone','receiver_address','package_description','carrier_name','carrier_reference','quantity','payment_mode','shipment_mode','dispatch_date','delivery_date','delivery_time','tracking_image'].includes(col)) {
+      if (['status','origin','destination','eta','service','weight','rate','outstanding_fee','progress','coords','route','sender_name','sender_email','sender_phone','sender_address','receiver_name','receiver_email','receiver_phone','receiver_address','package_description','carrier_name','carrier_reference','quantity','payment_mode','shipment_mode','dispatch_date','delivery_date','delivery_time','tracking_image'].includes(col)) {
         fields.push(`${col} = $${idx}`);
         if (['coords','route'].includes(key)) {
           const val = augBody[key];

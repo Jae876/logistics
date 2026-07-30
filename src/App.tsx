@@ -77,6 +77,7 @@ type TrackingFormData = {
   trackingImage: string;
   route: string;
   coords: string;
+  outstandingFee: string;
 };
 
 type NewZoneData = {
@@ -154,6 +155,7 @@ const defaultTrackingForm: TrackingFormData = {
   status: 'Pending confirmation',
   trackingImage: ''
   ,
+  outstandingFee: '$0',
   // route stored as JSON string in the form; admin can paste a JSON array of [lat, lng]
   route: JSON.stringify([[34.0522, -118.2437], [40.7128, -74.006]], null, 2),
   coords: JSON.stringify([34.0522, -118.2437])
@@ -627,6 +629,7 @@ function App() {
         service: trackingForm.shipmentMode,
         weight: trackingForm.weight,
         rate: trackingForm.rate,
+        outstandingFee: trackingForm.outstandingFee,
         status: trackingForm.status,
         senderName: trackingForm.senderName,
         senderEmail: trackingForm.senderEmail,
@@ -678,6 +681,7 @@ function App() {
         service: trackingForm.shipmentMode,
         weight: trackingForm.weight,
         rate: trackingForm.rate,
+        outstandingFee: trackingForm.outstandingFee,
         status: trackingForm.status,
         senderName: trackingForm.senderName,
         senderEmail: trackingForm.senderEmail,
@@ -1465,6 +1469,10 @@ function App() {
                   Rate
                   <input value={trackingForm.rate} onChange={(e) => setTrackingForm((prev) => ({ ...prev, rate: e.target.value }))} />
                 </label>
+                <label>
+                  Outstanding fees
+                  <input value={trackingForm.outstandingFee} onChange={(e) => setTrackingForm((prev) => ({ ...prev, outstandingFee: e.target.value }))} />
+                </label>
               </div>
             </div>
           </div>
@@ -1794,7 +1802,7 @@ function App() {
                     <div className="card-title">Shipment summary</div>
                     <div className="alert-row">
                       <span className="alert-label">Outstanding fees</span>
-                      <strong>{trackedShipment.status.toLowerCase().includes('pending') ? '$1,380' : '$0'}</strong>
+                      <strong>{trackedShipment.outstanding_fee || trackedShipment.outstandingFee || (trackedShipment.status.toLowerCase().includes('pending') ? '$1,380' : '$0')}</strong>
                     </div>
                     <p className="alert-copy">Check customs and payment status to avoid delays.</p>
                     <div className="alert-row compact">

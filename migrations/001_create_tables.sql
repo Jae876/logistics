@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS shipments (
   service TEXT,
   weight TEXT,
   rate TEXT,
+  outstanding_fee TEXT,
   progress INTEGER DEFAULT 0,
   coords JSONB,
   route JSONB,
