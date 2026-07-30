@@ -1226,7 +1226,7 @@ function App() {
             {shipments.slice(0, 8).map((shipment) => (
               <div key={shipment.id} className={`table-row body-row ${shipment.id === selectedShipmentId ? 'selected' : ''}`}>
                 <div className="package-cell" onClick={() => setSelectedShipmentId(shipment.id)}>
-                  <div className="package-icon">{shipment.service[0]}</div>
+                  <div className="package-icon">{(shipment.service && shipment.service[0]) || '•'}</div>
                   <div>
                     <strong>{shipment.service}</strong>
                     <span>{shipment.origin} → {shipment.destination}</span>

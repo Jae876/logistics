@@ -152,7 +152,7 @@ export default async function handler(req, res) {
       body.origin || '',
       body.destination || '',
       body.eta || null,
-      body.service || null,
+      body.service || 'Freight',
       body.weight || null,
       body.rate || null,
       body.progress || 0,
