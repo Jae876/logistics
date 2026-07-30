@@ -102,6 +102,22 @@ const liveMarkerIcon = L.divIcon({
   popupAnchor: [0, -14]
 });
 
+const originIcon = L.divIcon({
+  className: 'route-marker-icon origin-marker',
+  html: '<span>O</span>',
+  iconSize: [26, 26],
+  iconAnchor: [13, 13],
+  popupAnchor: [0, -14]
+});
+
+const destinationIcon = L.divIcon({
+  className: 'route-marker-icon destination-marker',
+  html: '<span>D</span>',
+  iconSize: [26, 26],
+  iconAnchor: [13, 13],
+  popupAnchor: [0, -14]
+});
+
 const defaultTrackingForm: TrackingFormData = {
   senderName: 'John Doe',
   senderEmail: 'johndoe@globalmail.com',
@@ -324,12 +340,12 @@ function App() {
   const selectedRouteOrigin = activeRoute[0] || mapCenter;
   const selectedRouteDestination = activeRoute[activeRoute.length - 1] || mapCenter;
   const trackedMapKey = trackedShipment ? `${trackedShipment.id}-${trackedShipment.status}` : 'track-map';
-  const trackedRoute = getValidRoute(trackedShipment?.route);
-  const trackedMapBounds = trackedRoute.length
-    ? trackedRoute
-    : isCoordinatePair(trackedShipment?.coords)
-      ? [trackedShipment.coords]
-      : [mapCenter];
+  const trackedRoute = useMemo(() => getValidRoute(trackedShipment?.route), [trackedShipment]);
+  const trackedMapBounds = useMemo(() => {
+    if (trackedRoute.length > 1) return trackedRoute;
+    if (trackedRoute.length === 1) return [trackedRoute[0], trackedShipment?.coords || mapCenter];
+    return isCoordinatePair(trackedShipment?.coords) ? [trackedShipment.coords] : [mapCenter];
+  }, [trackedRoute, trackedShipment, mapCenter]);
 
   const loadTrackedShipment = async (query: string) => {
     const preservedQuery = query.trim();
@@ -404,6 +420,15 @@ function App() {
   }, [shipments, trackedShipment]);
 
   const navigate = (path: string) => {
+    const url = new URL(window.location.href);
+    if (path.startsWith('/track?id=')) {
+      const [pathname, query] = path.split('?');
+      url.pathname = pathname;
+      url.search = query ? `?${query}` : '';
+      window.history.pushState(null, '', url.toString());
+      setRoute(pathname);
+      return;
+    }
     window.history.pushState(null, '', path);
     setRoute(path);
   };
@@ -1580,26 +1605,22 @@ function App() {
                     </div>
                     <MapContainer key={trackedMapKey} bounds={trackedMapBounds} boundsOptions={{ padding: [40, 40] }} scrollWheelZoom className="map-frame-inner">
                       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
-                      {getValidRoute(trackedShipment.route).map((position, index, routePoints) => (
-                        <Marker
-                          key={`route-point-${index}`}
-                          position={position}
-                          icon={markerIcon as any}
-                        >
-                          <Popup>
-                            {index === 0 ? 'Origin' : index === routePoints.length - 1 ? 'Destination' : `Stop ${index + 1}`}
-                          </Popup>
-                          <Tooltip permanent direction="top" offset={[0, -12]}>
-                            {index === 0 ? 'Origin' : index === routePoints.length - 1 ? 'Destination' : `Stop ${index + 1}`}
-                          </Tooltip>
-                        </Marker>
-                      ))}
-                      {getValidRoute(trackedShipment.route).length > 0 && (
+                      {trackedRoute.length > 0 && (
                         <>
-                          <Polyline pathOptions={{ color: '#f59e0b', weight: 5 }} positions={getValidRoute(trackedShipment.route)} />
-                          <Marker position={trackedShipment.coords} icon={liveMarkerIcon as any}>
-                            <Popup>Live position</Popup>
+                          <Polyline pathOptions={{ color: '#fbbf24', weight: 8, opacity: 0.92 }} positions={trackedRoute} />
+                          <Marker position={trackedRoute[0]} icon={originIcon as any}>
+                            <Popup>Origin</Popup>
+                            <Tooltip permanent direction="top" offset={[0, -12]}>Origin</Tooltip>
                           </Marker>
+                          <Marker position={trackedRoute[trackedRoute.length - 1]} icon={destinationIcon as any}>
+                            <Popup>Destination</Popup>
+                            <Tooltip permanent direction="top" offset={[0, -12]}>Destination</Tooltip>
+                          </Marker>
+                          {isCoordinatePair(trackedShipment?.coords) && (
+                            <Marker position={trackedShipment.coords} icon={liveMarkerIcon as any}>
+                              <Popup>Live position</Popup>
+                            </Marker>
+                          )}
                         </>
                       )}
                       {geofences.map((zone) => (
