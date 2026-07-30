@@ -48,6 +48,24 @@ const mapRow = (row) => {
 
   return {
     ...row,
+    senderName: row.senderName || row.sender_name || '',
+    senderEmail: row.senderEmail || row.sender_email || '',
+    senderPhone: row.senderPhone || row.sender_phone || '',
+    senderAddress: row.senderAddress || row.sender_address || '',
+    receiverName: row.receiverName || row.receiver_name || '',
+    receiverEmail: row.receiverEmail || row.receiver_email || '',
+    receiverPhone: row.receiverPhone || row.receiver_phone || '',
+    receiverAddress: row.receiverAddress || row.receiver_address || '',
+    packageDescription: row.packageDescription || row.package_description || '',
+    carrierName: row.carrierName || row.carrier_name || '',
+    carrierReference: row.carrierReference || row.carrier_reference || '',
+    paymentMode: row.paymentMode || row.payment_mode || '',
+    shipmentMode: row.shipmentMode || row.shipment_mode || '',
+    dispatchDate: row.dispatchDate || row.dispatch_date || '',
+    deliveryDate: row.deliveryDate || row.delivery_date || '',
+    deliveryTime: row.deliveryTime || row.delivery_time || '',
+    trackingImage: row.trackingImage || row.tracking_image || '',
+    outstandingFee: row.outstandingFee || row.outstanding_fee || '',
     route: derivedRoute,
     coords: derivedCoords
   };

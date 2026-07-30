@@ -55,6 +55,24 @@ const parseLatLngString = (s) => {
 
 const normalizeShipment = (shipment) => ({
   ...shipment,
+  senderName: shipment.senderName || shipment.sender_name || '',
+  senderEmail: shipment.senderEmail || shipment.sender_email || '',
+  senderPhone: shipment.senderPhone || shipment.sender_phone || '',
+  senderAddress: shipment.senderAddress || shipment.sender_address || '',
+  receiverName: shipment.receiverName || shipment.receiver_name || '',
+  receiverEmail: shipment.receiverEmail || shipment.receiver_email || '',
+  receiverPhone: shipment.receiverPhone || shipment.receiver_phone || '',
+  receiverAddress: shipment.receiverAddress || shipment.receiver_address || '',
+  packageDescription: shipment.packageDescription || shipment.package_description || '',
+  carrierName: shipment.carrierName || shipment.carrier_name || '',
+  carrierReference: shipment.carrierReference || shipment.carrier_reference || '',
+  paymentMode: shipment.paymentMode || shipment.payment_mode || '',
+  shipmentMode: shipment.shipmentMode || shipment.shipment_mode || '',
+  dispatchDate: shipment.dispatchDate || shipment.dispatch_date || '',
+  deliveryDate: shipment.deliveryDate || shipment.delivery_date || '',
+  deliveryTime: shipment.deliveryTime || shipment.delivery_time || '',
+  trackingImage: shipment.trackingImage || shipment.tracking_image || '',
+  outstandingFee: shipment.outstandingFee || shipment.outstanding_fee || '',
   route: normalizeJsonField(shipment.route),
   coords: normalizeJsonField(shipment.coords)
 });
