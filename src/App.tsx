@@ -644,7 +644,8 @@ function App() {
     });
 
     if (!response.ok) {
-      setAdminMessage('Unable to create shipment.');
+      const err = await response.json().catch(() => null);
+      setAdminMessage(err?.error || `Unable to create shipment (HTTP ${response.status})`);
       return;
     }
 
@@ -693,7 +694,8 @@ function App() {
     });
 
     if (!response.ok) {
-      setAdminMessage('Unable to update shipment.');
+      const err = await response.json().catch(() => null);
+      setAdminMessage(err?.error || `Unable to update shipment (HTTP ${response.status})`);
       return;
     }
 
