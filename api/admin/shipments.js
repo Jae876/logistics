@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { query, runMigrationsIfNeeded, pool } from '../_db.js';
 import { seededShipments } from '../_fixtures.js';
+import { geocodeAddress, getRouteFromOrs, isOpenRouteServiceConfigured } from '../_ors.js';
 
 const SECRET = process.env.ADMIN_JWT_SECRET || 'dev-secret-change-me';
 
@@ -133,18 +134,36 @@ export default async function handler(req, res) {
       return [];
     };
 
-    const derivedCoords = (() => {
+    const derivedCoords = await (async () => {
       const fromBody = normalizeInput(body.coords);
       if (fromBody && fromBody.length) return fromBody;
       const parsed = parseLatLngString(body.coords) || parseLatLngString(body.origin);
-      return parsed || [34.0522, -118.2437];
+      if (parsed) return parsed;
+      if (isOpenRouteServiceConfigured() && body.origin) {
+        const geo = await geocodeAddress(body.origin);
+        if (geo) return geo;
+      }
+      return [34.0522, -118.2437];
     })();
 
-    const derivedRoute = (() => {
+    const derivedDestination = await (async () => {
+      const parsed = parseLatLngString(body.destination);
+      if (parsed) return parsed;
+      if (isOpenRouteServiceConfigured() && body.destination) {
+        return await geocodeAddress(body.destination);
+      }
+      return [40.7128, -74.006];
+    })();
+
+    const derivedRoute = await (async () => {
       const fromBody = normalizeInput(body.route);
       if (fromBody && fromBody.length) return fromBody;
-      const originPt = parseLatLngString(body.origin) || derivedCoords;
-      const destPt = parseLatLngString(body.destination) || [40.7128, -74.006];
+      const originPt = derivedCoords;
+      const destPt = derivedDestination;
+      if (isOpenRouteServiceConfigured() && originPt && destPt) {
+        const route = await getRouteFromOrs(originPt, destPt);
+        if (route && route.length) return route;
+      }
       return [originPt, destPt];
     })();
 
@@ -198,13 +217,31 @@ export default async function handler(req, res) {
     const augBody = { ...body };
     try {
       if (!('coords' in augBody) && (augBody.origin || augBody.destination)) {
-        const derived = parseLatLngString(augBody.origin) || parseLatLngString(augBody.destination) || [34.0522, -118.2437];
-        augBody.coords = JSON.stringify(derived);
+        const parsedOrigin = parseLatLngString(augBody.origin);
+        const parsedDestination = parseLatLngString(augBody.destination);
+        let derivedCoords = parsedOrigin || parsedDestination || null;
+        if (!derivedCoords && isOpenRouteServiceConfigured() && augBody.origin) {
+          derivedCoords = await geocodeAddress(augBody.origin);
+        }
+        if (!derivedCoords && isOpenRouteServiceConfigured() && augBody.destination) {
+          derivedCoords = await geocodeAddress(augBody.destination);
+        }
+        if (derivedCoords) augBody.coords = JSON.stringify(derivedCoords);
       }
+
       if (!('route' in augBody) && (augBody.origin || augBody.destination)) {
-        const originPt = parseLatLngString(augBody.origin) || (augBody.coords ? normalizeJsonField(augBody.coords)[0] : null) || [34.0522, -118.2437];
-        const destPt = parseLatLngString(augBody.destination) || [40.7128, -74.006];
-        augBody.route = JSON.stringify([originPt, destPt]);
+        const originPt = parseLatLngString(augBody.origin) || (augBody.coords ? normalizeJsonField(augBody.coords)[0] : null) || null;
+        const destPt = parseLatLngString(augBody.destination) || null;
+        let routePoints = null;
+        if (originPt && destPt && isOpenRouteServiceConfigured()) {
+          routePoints = await getRouteFromOrs(originPt, destPt);
+        }
+        if (!routePoints) {
+          const fallbackOrigin = originPt || (await (isOpenRouteServiceConfigured() && augBody.origin ? geocodeAddress(augBody.origin) : null)) || [34.0522, -118.2437];
+          const fallbackDest = destPt || (await (isOpenRouteServiceConfigured() && augBody.destination ? geocodeAddress(augBody.destination) : null)) || [40.7128, -74.006];
+          routePoints = [fallbackOrigin, fallbackDest];
+        }
+        augBody.route = JSON.stringify(routePoints);
       }
     } catch (err) {
       // fall back silently
