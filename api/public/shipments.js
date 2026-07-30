@@ -59,6 +59,9 @@ export default async function handler(req, res) {
   const requestedId = req.query?.id || (req.url ? new URL(req.url, 'http://localhost').searchParams.get('id') : '');
 
   if (!pool) {
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
+      return res.status(501).json({ error: 'Database not configured. Set DATABASE_URL for production deployment.' });
+    }
     const shipments = seededShipments.map(mapRow);
     if (requestedId) {
       const match = shipments.find((shipment) => shipment.id.toLowerCase() === requestedId.toLowerCase());

@@ -61,8 +61,14 @@ const normalizeShipment = (shipment) => ({
 
 const seededShipmentsList = [...seededShipments];
 
+const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+
 export default async function handler(req, res) {
   if (pool) await runMigrationsIfNeeded();
+
+  if (!pool && isProduction) {
+    return res.status(501).json({ error: 'Database not configured. Set DATABASE_URL for production deployment.' });
+  }
 
   const user = requireAuth(req);
   if (!user) return res.status(403).json({ error: 'Unauthorized' });
