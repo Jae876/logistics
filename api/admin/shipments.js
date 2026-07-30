@@ -219,10 +219,10 @@ export default async function handler(req, res) {
       return res.json(normalizeShipment(seededShipmentsList[index]));
     }
     const body = req.body || {};
-    // augment body with derived coords/route if origin/destination provided but coords/route absent
+    // always recalculate coords and route when origin or destination is changed
     const augBody = { ...body };
     try {
-      if (!('coords' in augBody) && (augBody.origin || augBody.destination)) {
+      if (augBody.origin || augBody.destination) {
         const parsedOrigin = parseLatLngString(augBody.origin);
         const parsedDestination = parseLatLngString(augBody.destination);
         let derivedCoords = parsedOrigin || parsedDestination || null;
@@ -233,24 +233,21 @@ export default async function handler(req, res) {
           derivedCoords = await geocodeAddress(augBody.destination);
         }
         if (derivedCoords) augBody.coords = JSON.stringify(derivedCoords);
-      }
 
-      if (!('route' in augBody) && (augBody.origin || augBody.destination)) {
-        const originPt = parseLatLngString(augBody.origin) || (augBody.coords ? normalizeJsonField(augBody.coords)[0] : null) || null;
-        const destPt = parseLatLngString(augBody.destination) || null;
+        const originPt = parsedOrigin || (await (isOpenRouteServiceConfigured() && augBody.origin ? geocodeAddress(augBody.origin) : null)) || [34.0522, -118.2437];
+        const destPt = parsedDestination || (await (isOpenRouteServiceConfigured() && augBody.destination ? geocodeAddress(augBody.destination) : null)) || [40.7128, -74.006];
         let routePoints = null;
+
         if (originPt && destPt && isOpenRouteServiceConfigured()) {
           routePoints = await getRouteFromOrs(originPt, destPt);
         }
         if (!routePoints) {
-          const fallbackOrigin = originPt || (await (isOpenRouteServiceConfigured() && augBody.origin ? geocodeAddress(augBody.origin) : null)) || [34.0522, -118.2437];
-          const fallbackDest = destPt || (await (isOpenRouteServiceConfigured() && augBody.destination ? geocodeAddress(augBody.destination) : null)) || [40.7128, -74.006];
-          routePoints = [fallbackOrigin, fallbackDest];
+          routePoints = [originPt, destPt];
         }
         augBody.route = JSON.stringify(routePoints);
       }
     } catch (err) {
-      // fall back silently
+      // fall back silently when ORS fails
     }
 
     const fields = [];

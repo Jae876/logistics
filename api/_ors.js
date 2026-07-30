@@ -11,6 +11,16 @@ const parseOrsCoordinates = (coords) => {
   return [lat, lng];
 };
 
+const fetchWithTimeout = async (url, options = {}, timeoutMs = 4000) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 export async function geocodeAddress(address) {
   if (!hasOrsKey || !address || typeof address !== 'string') return null;
   const url = new URL(ORS_GEOCODE_URL);
@@ -18,7 +28,12 @@ export async function geocodeAddress(address) {
   url.searchParams.set('text', address);
   url.searchParams.set('size', '1');
 
-  const response = await fetch(url.toString());
+  let response;
+  try {
+    response = await fetchWithTimeout(url.toString());
+  } catch {
+    return null;
+  }
   if (!response.ok) return null;
   const payload = await response.json().catch(() => null);
   const feature = payload?.features?.[0];
@@ -38,14 +53,19 @@ export async function getRouteFromOrs(origin, destination) {
     units: 'km'
   };
 
-  const response = await fetch(ORS_DIRECTIONS_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: ORS_API_KEY,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
+  let response;
+  try {
+    response = await fetchWithTimeout(ORS_DIRECTIONS_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: ORS_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+  } catch {
+    return null;
+  }
 
   if (!response.ok) return null;
   const payload = await response.json().catch(() => null);
