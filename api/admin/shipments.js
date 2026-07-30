@@ -16,10 +16,23 @@ const requireAuth = (req) => {
   }
 };
 
+const normalizeJsonField = (value) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
 const normalizeShipment = (shipment) => ({
   ...shipment,
-  route: Array.isArray(shipment.route) ? shipment.route : [],
-  coords: Array.isArray(shipment.coords) ? shipment.coords : []
+  route: normalizeJsonField(shipment.route),
+  coords: normalizeJsonField(shipment.coords)
 });
 
 const seededShipmentsList = [...seededShipments];

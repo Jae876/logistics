@@ -1,10 +1,23 @@
 import { query, runMigrationsIfNeeded, pool } from '../_db.js';
 import { seededShipments } from '../_fixtures.js';
 
+const normalizeJsonField = (value) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
 const mapRow = (row) => ({
   ...row,
-  route: Array.isArray(row.route) ? row.route : [],
-  coords: Array.isArray(row.coords) ? row.coords : []
+  route: normalizeJsonField(row.route),
+  coords: normalizeJsonField(row.coords)
 });
 
 export default async function handler(req, res) {

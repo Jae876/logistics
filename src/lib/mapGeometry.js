@@ -11,12 +11,26 @@ const parseMaybeJson = (value) => {
   }
 };
 
+const getPointFromObject = (value) => {
+  if (!value || typeof value !== 'object') return null;
+  const lat = value.lat ?? value.latitude ?? value.y ?? value[0];
+  const lng = value.lng ?? value.longitude ?? value.x ?? value[1];
+  if (isFiniteNumber(lat) && isFiniteNumber(lng)) return [lat, lng];
+  return null;
+};
+
 const sanitizeCoordinate = (value) => {
   const parsed = parseMaybeJson(value);
-  if (!Array.isArray(parsed) || parsed.length < 2) return null;
-  const [lat, lng] = parsed;
-  if (!isFiniteNumber(lat) || !isFiniteNumber(lng)) return null;
-  return [lat, lng];
+  if (Array.isArray(parsed) && parsed.length >= 2) {
+    const rawLat = parsed[0];
+    const rawLng = parsed[1];
+    const lat = typeof rawLat === 'string' ? Number(rawLat) : rawLat;
+    const lng = typeof rawLng === 'string' ? Number(rawLng) : rawLng;
+    if (isFiniteNumber(lat) && isFiniteNumber(lng)) return [lat, lng];
+  }
+  const objectPoint = getPointFromObject(parsed);
+  if (objectPoint) return objectPoint;
+  return null;
 };
 
 export const sanitizeCoordinatePair = (value) => {

@@ -324,10 +324,43 @@ function App() {
   const selectedRouteOrigin = activeRoute[0] || mapCenter;
   const selectedRouteDestination = activeRoute[activeRoute.length - 1] || mapCenter;
   const trackedMapKey = trackedShipment ? `${trackedShipment.id}-${trackedShipment.status}` : 'track-map';
-  const trackedMapBounds = getValidRoute(trackedShipment?.route).length ? getValidRoute(trackedShipment?.route) : [mapCenter];
+  const trackedRoute = getValidRoute(trackedShipment?.route);
+  const trackedMapBounds = trackedRoute.length
+    ? trackedRoute
+    : isCoordinatePair(trackedShipment?.coords)
+      ? [trackedShipment.coords]
+      : [mapCenter];
+
+  const loadTrackedShipment = async (query: string) => {
+    const preservedQuery = query.trim();
+    if (!preservedQuery) return;
+
+    try {
+      const response = await fetch(`/api/public/shipments?id=${encodeURIComponent(preservedQuery)}`);
+      if (!response.ok) return;
+      const payload = await response.json();
+      const latest = sanitizeShipments<Shipment>(Array.isArray(payload) ? payload : Array.isArray(payload?.rows) ? payload.rows : []);
+      const found = latest.find((shipment) => shipment.id.toLowerCase() === preservedQuery.toLowerCase());
+
+      if (found) {
+        setShipments(latest);
+        setSelectedShipmentId(found.id);
+        setTrackedShipment(found);
+      }
+    } catch {
+      // ignore failures; leave state unchanged until user search
+    }
+  };
 
   useEffect(() => {
     if (!isTrackRoute) return undefined;
+    const searchParams = new URLSearchParams(window.location.search);
+    const queryId = searchParams.get('id');
+    if (queryId) {
+      setTrackQuery(queryId);
+      loadTrackedShipment(queryId);
+    }
+
     const poll = async () => {
       const response = await fetch('/api/public/shipments');
       if (!response.ok) return;
@@ -597,8 +630,9 @@ function App() {
     setAdminMessage('Shipment removed.');
   };
 
-  const performTracking = async () => {
-    const query = trackQuery.trim().toLowerCase();
+  const performTracking = async (eventOrQuery?: React.MouseEvent<HTMLButtonElement> | string) => {
+    const rawQuery = typeof eventOrQuery === 'string' ? eventOrQuery : trackQuery;
+    const query = rawQuery.trim().toLowerCase();
     if (!query) {
       setTrackedShipment(null);
       setIsPackageImageOpen(false);
@@ -607,7 +641,7 @@ function App() {
     }
 
     try {
-      const response = await fetch(`/api/public/shipments?id=${encodeURIComponent(trackQuery.trim())}`);
+      const response = await fetch(`/api/public/shipments?id=${encodeURIComponent(query)}`);
       if (!response.ok) {
         setTrackedShipment(null);
         setIsPackageImageOpen(false);
@@ -627,7 +661,7 @@ function App() {
         navigate('/track');
         return;
       }
-    } catch (error) {
+    } catch {
       setTrackedShipment(null);
       setIsPackageImageOpen(false);
     }
@@ -777,7 +811,7 @@ function App() {
                 Tracking reference
                 <input value={trackQuery} onChange={(e) => setTrackQuery(e.target.value)} placeholder="Enter booking reference" />
               </label>
-              <button className="cta-button" type="button" onClick={performTracking}>Track shipment</button>
+              <button className="cta-button" type="button" onClick={() => performTracking()}>Track shipment</button>
             </div>
             {trackedShipment ? (
               <div className="track-result">
@@ -1432,7 +1466,7 @@ function App() {
             <input value={trackQuery} onChange={(e) => setTrackQuery(e.target.value)} placeholder="DGS-100001" />
           </label>
           <div className="track-actions">
-            <button className="cta-button" type="button" onClick={performTracking}>Find shipment</button>
+            <button className="cta-button" type="button" onClick={() => performTracking()}>Find shipment</button>
           </div>
         </div>
         {trackedShipment ? (
