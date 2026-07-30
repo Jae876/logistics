@@ -17,6 +17,8 @@ const normalizeJsonField = (value) => {
 const CITY_COORDS = {
   'los angeles': [34.0522, -118.2437],
   'new york': [40.7128, -74.006],
+  'washington': [38.9072, -77.0369],
+  'washington dc': [38.9072, -77.0369],
   'houston': [29.7604, -95.3698],
   'chicago': [41.8781, -87.6298],
   'hamburg': [53.5511, 9.9937],
