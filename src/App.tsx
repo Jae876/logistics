@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { Circle, MapContainer, Marker, Popup, Polyline, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
+import QRCode from 'qrcode';
 import 'leaflet/dist/leaflet.css';
 import './styles.css';
 import { sanitizeGeofences, sanitizeShipments } from './lib/mapGeometry';
@@ -362,48 +363,19 @@ function App() {
     return { 'x-admin-token': token, Authorization: `Bearer ${token}` };
   };
 
-  const renderBarcodeSvg = (value: string) => {
-    const bars: JSX.Element[] = [];
-    let x = 10;
-    const height = 100;
-    const barColor = '#111827';
-    const whiteColor = '#ffffff';
+  const trackingUrl = (id: string) => `${window.location.origin}/track?id=${encodeURIComponent(id)}`;
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
 
-    for (const char of value) {
-      const code = char.charCodeAt(0);
-      const widths = [
-        ((code >> 0) & 3) + 2,
-        ((code >> 2) & 3) + 1,
-        ((code >> 4) & 3) + 2,
-        ((code >> 6) & 3) + 1,
-        ((code >> 1) & 3) + 1,
-        ((code >> 3) & 3) + 2
-      ];
-
-      widths.forEach((width, index) => {
-        const filled = index % 2 === 0;
-        bars.push(
-          <rect
-            key={`${char}-${index}-${x}`}
-            x={x}
-            y={filled ? 0 : height * 0.3}
-            width={width * 2}
-            height={filled ? height : height * 0.45}
-            fill={filled ? barColor : whiteColor}
-          />
-        );
-        x += width * 2;
-      });
-      x += 4;
+  useEffect(() => {
+    if (!trackedShipment?.id) {
+      setQrCodeDataUrl('');
+      return;
     }
-
-    return (
-      <svg viewBox={`0 0 ${x + 10} ${height}`} preserveAspectRatio="xMidYMid meet" className="tracking-barcode">
-        <rect x={0} y={0} width={x + 10} height={height} fill={whiteColor} />
-        {bars}
-      </svg>
-    );
-  };
+    const url = trackingUrl(trackedShipment.id);
+    QRCode.toDataURL(url, { errorCorrectionLevel: 'H', width: 260 })
+      .then((dataUrl) => setQrCodeDataUrl(dataUrl))
+      .catch(() => setQrCodeDataUrl(''));
+  }, [trackedShipment?.id]);
 
   const getShipmentTimeline = (status: string) => {
     const normalized = status.toLowerCase();
@@ -1548,7 +1520,7 @@ function App() {
                           <div className="progress-status">
                             {getShipmentTimeline(trackedShipment.status).find((s) => s.state === 'current')?.label || trackedShipment.status}
                           </div>
-                          <span className="muted">Admin-driven status</span>
+                          <span className="muted">Status based on current shipment stage</span>
                         </div>
                       )}
                     </div>
@@ -1626,7 +1598,13 @@ function App() {
                 <p>Scan this barcode for quick reference.</p>
               </div>
               <div className="barcode-frame">
-                {renderBarcodeSvg(trackedShipment.id)}
+                {qrCodeDataUrl ? (
+                  <a href={trackingUrl(trackedShipment.id)} target="_blank" rel="noreferrer">
+                    <img src={qrCodeDataUrl} alt={`QR code for ${trackedShipment.id}`} className="tracking-qr" />
+                  </a>
+                ) : (
+                  <div className="barcode-placeholder">QR code unavailable</div>
+                )}
                 <div className="barcode-label">{trackedShipment.id}</div>
               </div>
             </div>
