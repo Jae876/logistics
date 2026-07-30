@@ -632,16 +632,17 @@ function App() {
 
   const performTracking = async (eventOrQuery?: React.MouseEvent<HTMLButtonElement> | string) => {
     const rawQuery = typeof eventOrQuery === 'string' ? eventOrQuery : trackQuery;
-    const query = rawQuery.trim().toLowerCase();
-    if (!query) {
+    const searchQuery = rawQuery.trim();
+    if (!searchQuery) {
       setTrackedShipment(null);
       setIsPackageImageOpen(false);
       navigate('/track');
       return;
     }
+    const normalizedQuery = searchQuery.toLowerCase();
 
     try {
-      const response = await fetch(`/api/public/shipments?id=${encodeURIComponent(query)}`);
+      const response = await fetch(`/api/public/shipments?id=${encodeURIComponent(searchQuery)}`);
       if (!response.ok) {
         setTrackedShipment(null);
         setIsPackageImageOpen(false);
@@ -651,14 +652,15 @@ function App() {
 
       const payload = await response.json().catch(() => null);
       const latest = sanitizeShipments<Shipment>(Array.isArray(payload) ? payload : Array.isArray(payload?.rows) ? payload.rows : []);
-      const found = latest.find((shipment) => shipment.id.toLowerCase() === query);
+      const found = latest.find((shipment) => shipment.id.toLowerCase() === normalizedQuery);
 
       if (found) {
+        setTrackQuery(searchQuery);
         setShipments(latest);
         setSelectedShipmentId(found.id);
         setTrackedShipment(found);
         setIsPackageImageOpen(false);
-        navigate('/track');
+        navigate(`/track?id=${encodeURIComponent(searchQuery)}`);
         return;
       }
     } catch {
@@ -666,7 +668,7 @@ function App() {
       setIsPackageImageOpen(false);
     }
 
-    const fallback = shipments.find((shipment) => shipment.id.toLowerCase() === query);
+    const fallback = shipments.find((shipment) => shipment.id.toLowerCase() === normalizedQuery);
     if (fallback) {
       setSelectedShipmentId(fallback.id);
       setTrackedShipment(fallback);

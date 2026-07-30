@@ -37,7 +37,7 @@ export default async function handler(req, res) {
   try {
     await runMigrationsIfNeeded();
     if (requestedId) {
-      const result = await query('SELECT * FROM shipments WHERE id = $1 ORDER BY created_at DESC', [requestedId]);
+      const result = await query('SELECT * FROM shipments WHERE LOWER(id) = LOWER($1) ORDER BY created_at DESC', [requestedId]);
       return res.json(result.rows.map(mapRow));
     }
     const result = await query('SELECT * FROM shipments ORDER BY created_at DESC');
