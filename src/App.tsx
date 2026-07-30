@@ -36,6 +36,8 @@ type Shipment = {
   deliveryDate?: string;
   deliveryTime?: string;
   trackingImage?: string;
+  outstanding_fee?: string;
+  outstandingFee?: string;
 };
 
 type GeofenceZone = {
@@ -831,7 +833,8 @@ function App() {
       status: shipment.status,
       trackingImage: shipment.trackingImage || '',
       route: shipment.route ? JSON.stringify(shipment.route, null, 2) : JSON.stringify([[34.0522, -118.2437], [40.7128, -74.006]], null, 2),
-      coords: shipment.coords ? JSON.stringify(shipment.coords) : JSON.stringify([34.0522, -118.2437])
+      coords: shipment.coords ? JSON.stringify(shipment.coords) : JSON.stringify([34.0522, -118.2437]),
+      outstandingFee: shipment.outstanding_fee || shipment.outstandingFee || defaultTrackingForm.outstandingFee || ''
     });
     setAdminView('add-tracking');
   };
