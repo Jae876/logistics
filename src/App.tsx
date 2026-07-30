@@ -618,7 +618,6 @@ function App() {
         id: createdId,
         origin: trackingForm.origin,
         coords: trackingForm.coords,
-        route: trackingForm.route,
         destination: trackingForm.destination,
         eta: trackingForm.eta,
         service: trackingForm.shipmentMode,
@@ -668,7 +667,6 @@ function App() {
       body: JSON.stringify({
         origin: trackingForm.origin,
         coords: trackingForm.coords,
-        route: trackingForm.route,
         destination: trackingForm.destination,
         eta: trackingForm.eta,
         service: trackingForm.shipmentMode,
@@ -1434,10 +1432,6 @@ function App() {
                 <label>
                   Coords (JSON)
                   <input value={trackingForm.coords} onChange={(e) => setTrackingForm((prev) => ({ ...prev, coords: e.target.value }))} />
-                </label>
-                <label>
-                  Route (JSON array of [lat, lng])
-                  <textarea rows={4} value={trackingForm.route} onChange={(e) => setTrackingForm((prev) => ({ ...prev, route: e.target.value }))} />
                 </label>
                 <label>
                   Weight
